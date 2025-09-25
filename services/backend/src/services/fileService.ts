@@ -28,24 +28,50 @@ class FileService {
     return `${process.env.API_BASE_URL}/uploads/${path.basename(file.path)}`;
   }
 
-  static async getProfilePicture(userId: string) {
-    const user = await db('users')
-      .select('picture_path')
-      .where({ id: userId })
-      .first();
-    if (!user || !user.picture_path) throw new Error('No profile picture');
+  private static readonly UPLOADS_BASE_DIR = path.resolve(process.env.UPLOADS_DIR || '/uploads');
 
-    const filePath = user.picture_path;
-    const stream   = fs.createReadStream(filePath);
-    const ext      = path.extname(filePath).toLowerCase();
-    const contentType =
-      ext === '.png'  ? 'image/png'  :
-      ext === '.jpg'  ? 'image/jpeg' :
-      ext === '.jpeg'? 'image/jpeg' : 
-      'application/octet-stream';
-
-    return { stream, contentType };
+private static validateFilePath(filePath: string): string {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('File path is required');
   }
+
+  const trimmedPath = filePath.trim();
+  
+  if (trimmedPath.length === 0) {
+    throw new Error('File path cannot be empty');
+  }
+
+  if (trimmedPath.includes('..') || trimmedPath.includes('~')) {
+    throw new Error('Path traversal characters not allowed');
+  }
+
+  return trimmedPath;
+}
+
+static async getProfilePicture(userId: string) {
+  const user = await db('users')
+    .select('picture_path')
+    .where({ id: userId })
+    .first();
+  if (!user || !user.picture_path) throw new Error('No profile picture');
+
+  const validatedPath = this.validateFilePath(user.picture_path);
+  const resolvedPath = path.resolve(validatedPath);
+
+  if (!resolvedPath.startsWith(this.UPLOADS_BASE_DIR)) {
+    throw new Error('Access denied: Path outside allowed directory');
+  }
+
+  const stream = fs.createReadStream(resolvedPath);
+  const ext = path.extname(resolvedPath).toLowerCase();
+  const contentType =
+    ext === '.png'  ? 'image/png'  :
+    ext === '.jpg'  ? 'image/jpeg' :
+    ext === '.jpeg'? 'image/jpeg' : 
+    'application/octet-stream';
+
+  return { stream, contentType };
+}
 
   static async deleteProfilePicture(userId: string) {
     const user = await db('users')

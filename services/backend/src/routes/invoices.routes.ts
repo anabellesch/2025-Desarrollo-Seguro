@@ -1,15 +1,13 @@
 import { Router } from 'express';
 import routes from '../controllers/invoiceController';
+import authenticateJWT from '../middleware/auth.middleware';
 
 const router = Router();
 
-// GET /invoices
+router.use(authenticateJWT);
+
 router.get('/', routes.listInvoices);
-
-// GET /invoices
 router.get('/:id', routes.getInvoice);
-
-// POST /invoices/:id/pay
 router.post('/:id/pay', routes.setPaymentCard);
 router.get('/:id/invoice', routes.getInvoicePDF);
 
