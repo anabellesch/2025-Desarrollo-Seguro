@@ -19,14 +19,14 @@ mockedNodemailer.createTransport = jest.fn().mockReturnValue({
 
 describe('AuthService.generateJwt', () => {
   const OLD_ENV = process.env;
-  beforeEach (() => {
+  beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
 
   });
 
   it('createUser', async () => {
-    const user  = {
+    const user = {
       id: 'user-123',
       email: 'a@a.com',
       password: 'password123',
@@ -47,8 +47,8 @@ describe('AuthService.generateJwt', () => {
       insert: jest.fn().mockReturnThis()
     };
     mockedDb
-    .mockReturnValueOnce(selectChain as any)
-    .mockReturnValueOnce(insertChain as any);
+      .mockReturnValueOnce(selectChain as any)
+      .mockReturnValueOnce(insertChain as any);
 
     // Call the method to test
     await AuthService.createUser(user);
@@ -76,7 +76,7 @@ describe('AuthService.generateJwt', () => {
   );
 
   it('createUser already exist', async () => {
-    const user  = {
+    const user = {
       id: 'user-123',
       email: 'a@a.com',
       password: 'password123',
@@ -96,7 +96,7 @@ describe('AuthService.generateJwt', () => {
   });
 
   it('updateUser', async () => {
-    const user  = {
+    const user = {
       id: 'user-123',
       email: 'a@b.com',
       password: 'newpassword123',
@@ -125,7 +125,7 @@ describe('AuthService.generateJwt', () => {
   });
 
   it('updateUser not found', async () => {
-    const user  = {
+    const user = {
       id: 'user-123',
       email: 'a@a.com',
       password: 'password123',
@@ -151,14 +151,14 @@ describe('AuthService.generateJwt', () => {
     const getUserChain = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      first: jest.fn().mockResolvedValue({password}),
+      first: jest.fn().mockResolvedValue({ password }),
     };
     // Mock the database update password
     mockedDb.mockReturnValueOnce(getUserChain as any);
 
     // Call the method to test
     const user = await AuthService.authenticate(email, password);
-    expect(getUserChain.where).toHaveBeenCalledWith({username : 'username'});
+    expect(getUserChain.where).toHaveBeenCalledWith({ username: 'username' });
     expect(user).toBeDefined();
   });
 
@@ -168,7 +168,7 @@ describe('AuthService.generateJwt', () => {
     const getUserChain = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      first: jest.fn().mockResolvedValue({password:'otherpassword'}),
+      first: jest.fn().mockResolvedValue({ password: 'otherpassword' }),
     };
     // Mock the database update password
     mockedDb.mockReturnValueOnce(getUserChain as any);
@@ -211,7 +211,7 @@ describe('AuthService.generateJwt', () => {
     };
     mockedDb
       .mockReturnValueOnce(getUserChain as any)
-      .mockReturnValueOnce(updateChain as any); 
+      .mockReturnValueOnce(updateChain as any);
     // Call the method to test
     await AuthService.sendResetPasswordEmail(email);
     expect(getUserChain.where).toHaveBeenCalledWith({ email });
@@ -244,12 +244,12 @@ describe('AuthService.generateJwt', () => {
 
   it('resetPassword', async () => {
     const token = 'valid-token';
-    const newPassword = 'newpassword123';    
+    const newPassword = 'newpassword123';
     // Mock the database get user
     const getUserChain = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      first: jest.fn().mockResolvedValue({id: 'user-123'}),
+      first: jest.fn().mockResolvedValue({ id: 'user-123' }),
     };
     // Mock the database update password
     const updateChain = {
@@ -318,7 +318,7 @@ describe('AuthService.generateJwt', () => {
       password: password,
       invite_token: null,
       invite_token_expires: null,
-      activated:true
+      activated: true
     });
 
     expect(updateChain.where).toHaveBeenCalledWith({ id: user_id });
@@ -346,8 +346,77 @@ describe('AuthService.generateJwt', () => {
     expect(token.length).toBeGreaterThan(0);
 
     // verify the token decodes to our payload
-    const decoded = jwt.verify(token,"secreto_super_seguro");
+    const decoded = jwt.verify(token, "secreto_super_seguro");
     expect((decoded as any).id).toBe(userId);
+  });
+
+
+/**
+ * Este test esta disenado como prueba unitaria para validar la mitigacion de la vulnerabilidad de template 
+ * injection en la funcionalidad de envio de correo al crear un nuevo usuario. El objetivo es asegurar que el 
+ * contenido del correo generado no interprete expresiones maliciosas como codigo ejecutable dentro del template.
+ * Esta prueba al ejecutarse en la rama main debe de fallar ya que la vulnerabilidad esta presente y en la rama
+ * practico-2 pasar ya que anteriormente fue mitigada.
+ */
+
+  test('No Template Code Injection in create user mail', async () => {
+    // Entrada maliciosa
+    // Creamos un usuario con un nombre que contiene codigo EJS
+    // Si el sistema no sanitiza correctamente este código se ejecutará en el HTML del correo
+    const user = {
+      id: 'user-123',
+      email: 'a@a.com',
+      password: 'password123',
+      first_name: '<%= 4*4 %>', // Entrada maliciosa
+      last_name: 'Last',
+      username: 'username',
+    } as User;
+
+    // Simulacion de base de datos y envio de correo
+    // Simulamos que el usuario no existe aun
+    const selectChain = {
+      where: jest.fn().mockReturnThis(),
+      orWhere: jest.fn().mockReturnThis(),
+      first: jest.fn().mockResolvedValue(null), // No existe el usuario
+    };
+
+    // Simulamos que el usuario se inserta correctamente
+    const insertChain = {
+      insert: jest.fn().mockResolvedValue([user]),
+    };
+
+    // Simulamos el envio de correo.
+    const transporter = {
+      sendMail: jest.fn().mockResolvedValue({}),
+    };
+    (nodemailer.createTransport as jest.Mock).mockReturnValue(transporter);
+
+    // Asociamos las funciones simuladas a la base de datos mockeada.
+    mockedDb
+      .mockReturnValueOnce(selectChain as any)
+      .mockReturnValueOnce(insertChain as any);
+
+    // Ejecucion
+    // Ejecutamos la funcion que crea el usuario y envia el correo
+    await AuthService.createUser(user);
+
+    // Verificación 
+    // Verificamos que el usuario fue insertado correctamente
+    expect(insertChain.insert).toHaveBeenCalledWith({
+      email: user.email,
+      password: expect.any(String),
+      first_name: user.first_name,
+      last_name: user.last_name,
+      username: user.username,
+      activated: false,
+      invite_token: expect.any(String),
+      invite_token_expires: expect.any(Date),
+    });
+
+    // Verificamos el contenido del correo enviado
+      const [mail] = transporter.sendMail.mock.calls[0];
+      expect(mail.html).not.toContain('16'); // No debe aparecer el resultado del código
+      expect(mail.html).toContain('<%= 4*4 %>'); // Debe mantenerse como texto plano
   });
 
 });
