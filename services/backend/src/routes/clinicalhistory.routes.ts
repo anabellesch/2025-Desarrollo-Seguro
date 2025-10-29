@@ -4,17 +4,14 @@ import {
   getClinicalHistory,
   createClinicalHistory
 } from '../controllers/clinicalHistoryController';
+import authenticateJWT from '../middleware/auth.middleware';
 
 const router = Router();
 
-// GET /clinical-history
+router.use(authenticateJWT);
+
 router.get('/', listClinicalHistory);
-
-// GET /clinical-history/:id
 router.get('/:id', getClinicalHistory);
-
-// POST /clinical-history
 router.post('/', createClinicalHistory);
 
 export default router;
-
