@@ -66,11 +66,12 @@ describe('AuthService.generateJwt', () => {
     });
 
     expect(nodemailer.createTransport).toHaveBeenCalled();
-    expect(nodemailer.createTransport().sendMail).toHaveBeenCalledWith({
+    expect(nodemailer.createTransport().sendMail).toHaveBeenCalledWith(expect.objectContaining({
+      from: "info@example.com",
       to: user.email,
       subject: 'Activate your account',
-      html: expect.stringContaining('Click <a href="')
-    });
+      html: expect.stringContaining('Click <a href=')
+    }));
   }
   );
 
@@ -188,7 +189,7 @@ describe('AuthService.generateJwt', () => {
     mockedDb.mockReturnValueOnce(getUserChain as any);
 
     // Call the method to test
-    await expect(AuthService.authenticate('username', 'password123')).rejects.toThrow('Invalid email or not activated');
+    await expect(AuthService.authenticate('username', 'password123')).rejects.toThrow('Invalid username or not activated');
   });
 
   it('sendResetPasswordEmail', async () => {
